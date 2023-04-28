@@ -5,8 +5,8 @@ import socket
 import json
 
 
-app_key = "s52l0y4vxjn9ono"
-app_secret ="dzczyhoxo8xtvgu"
+app_key = "s52l0y4vxjn9***"
+app_secret ="dzczyhoxo8xtv**"
 server_addr ="127.0.0.1"
 server_port =8090
 redirect_uri = "http://" + server_addr + ":" + str(server_port)
