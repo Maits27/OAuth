@@ -1,0 +1,138 @@
+
+<!-- saved from url=(0093)https://egela.ehu.eus/pluginfile.php/7901258/mod_resource/content/0/DropboxOAuthDesktopApp.py -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body>import requests
+import urllib
+import webbrowser
+import socket
+import json
+
+
+app_key = ''
+app_secret = ''
+server_addr = "localhost"
+server_port = 8090
+redirect_uri = "http://" + server_addr + ":" + str(server_port)
+
+
+def local_server():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((server_addr, server_port))
+    server_socket.listen(1)
+    print("\t\tSocket listening on port 8090")
+
+    # nabitzailetik 302 eskaera jaso
+    # ondorengo lerroan programa gelditzen da zerbitzariak 302 eskaera jasotzen duen arte
+    print("\t\tWaiting for client requests...")
+    client_connection, client_address = server_socket.accept()
+    eskaera = client_connection.recv(1024).decode()
+    print("\t\tNabigatzailetik ondorengo eskaera jaso da:")
+    print("\n" + eskaera)
+
+    # eskaeran "auth_code"-a bilatu
+    lehenengo_lerroa = eskaera.split('\n')[0]
+    aux_auth_code = lehenengo_lerroa.split(' ')[1]
+    auth_code = aux_auth_code[7:].split('&amp;')[0]
+    print("auth_code: " + auth_code)
+
+    # erabiltzaileari erantzun bat bueltatu
+    http_response = """\
+    HTTP/1.1 200 OK
+
+    
+    <title>Proba</title>
+    
+    The authentication flow has completed. Close this window.
+    
+    
+    """
+    client_connection.sendall(str.encode(http_response))
+    client_connection.close()
+    server_socket.close()
+
+    return auth_code
+
+
+def do_oauth():
+    # Authorization /oauth2/authorize
+    uri = "https://www.dropbox.com/oauth2/authorize"
+    datuak = {'response_type': 'code',
+              'client_id': app_key,
+              'redirect_uri': redirect_uri}
+    datuak_encoded = urllib.parse.urlencode(datuak)
+    webbrowser.open(uri + '?' + datuak_encoded)
+    print("/oauth2/authorize")
+
+    auth_code = local_server()
+    print("auth_code: " + auth_code)
+
+    # Exchange authorization code for access token /oauth2/authorize
+    print("/oauth2/authorize")
+    uri = 'https://api.dropboxapi.com/oauth2/token'
+    goiburuak = {'Host': 'api.dropboxapi.com',
+                 'Content-Type': 'application/x-www-form-urlencoded'}
+    datuak = {'code': auth_code,
+              'client_id': app_key,
+              'client_secret': app_secret,
+              'redirect_uri': redirect_uri,
+              'grant_type': 'authorization_code'}
+    datuak_encoded = urllib.parse.urlencode(datuak)
+    goiburuak['Content-Length'] = str(len(datuak_encoded))
+    erantzuna = requests.post(uri, headers=goiburuak, data=datuak_encoded, allow_redirects=False)
+    status = erantzuna.status_code
+    print("Status: " + str(status))
+
+    edukia = erantzuna.text
+    print("Edukia:")
+    print(edukia)
+    edukia_json = json.loads(edukia)
+    access_token = edukia_json['access_token']
+    print("access_token: " + access_token)
+
+    return access_token
+
+
+def list_folder(access_token, cursor="", edukia_json_entries=[]):
+    if not cursor:
+        print("/list_folder")
+        # https://www.dropbox.com/developers/documentation/http/documentation#files-list_folder
+        uri = 'https://api.dropboxapi.com/2/files/list_folder'
+        datuak = {'path': ''}
+    else:
+        print("/list_folder/continue")
+        # https://www.dropbox.com/developers/documentation/http/documentation#files-list_folder-continue
+        uri = 'https://api.dropboxapi.com/2/files/list_folder/continue'
+        datuak = {'cursor': cursor}
+
+    # Call Dropbox API
+    datuak_encoded = json.dumps(datuak)
+    goiburuak = {'Host': 'api.dropboxapi.com',
+                 'Authorization': 'Bearer ' + access_token,
+                 'Content-Type': 'application/json',
+                 'Content-Length': str(len(datuak_encoded))}
+    erantzuna = requests.post(uri, headers=goiburuak, data=datuak_encoded, allow_redirects=False)
+    status = erantzuna.status_code
+    print("\tStatus: " + str(status))
+    edukia = erantzuna.text
+    print("\tEdukia:")
+    print(edukia)
+
+    # See if there are more entries available. Process data.
+    edukia_json = json.loads(edukia)
+    if edukia_json['has_more']:
+        if edukia_json_entries:
+            edukia_json_entries = edukia_json_entries + edukia_json['entries']
+        else:
+            edukia_json_entries = edukia_json['entries']
+        list_folder(access_token, edukia_json['cursor'], edukia_json_entries)
+    else:
+        if edukia_json_entries:
+            edukia_json_entries = edukia_json_entries + edukia_json['entries']
+        else:
+            edukia_json_entries = edukia_json['entries']
+        for each in edukia_json_entries:
+            print(each)
+
+
+access_token = do_oauth()
+list_folder(access_token)
+</body></html>
