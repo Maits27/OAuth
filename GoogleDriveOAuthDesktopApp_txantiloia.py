@@ -23,7 +23,7 @@ scope = "https://www.googleapis.com/auth/drive.readonly" # See and download all 
 print("\tCreate authorization credentials")
 # https://developers.google.com/identity/protocols/oauth2/native-app#creatingcred
 client_id = "836557562780-k0sem43mbsahu8qugo4edc6790j6nsn5.apps.googleusercontent.com"
-client_secret = "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"
+client_secret = ""
 
 print("\tConfigure OAuth consent screen")
 print("\t\tAdd access scopes and test users")
